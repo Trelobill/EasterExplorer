@@ -66,6 +66,7 @@ public class POIManager {
                 poi.setInfo(cursor.getString(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_INFO)));
                 poiList.add(poi);
             } while (cursor.moveToNext());
+
             cursor.close();
         }
         return poiList;
