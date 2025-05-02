@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">EasterExplorer</string>
+    <string name="easter_explorer">Easter Explorer</string>
+    <string name="_2025_gkagkakis_all_rights_reserved">© 2025 Gkagkakis All rights reserved</string>
+    <string name="add_new_poi">Add New POI</string>
+    <string name="view_all_pois">View All POIs</string>
 </resources>
