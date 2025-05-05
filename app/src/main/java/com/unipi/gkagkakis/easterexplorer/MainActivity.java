@@ -33,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
         System.out.println("Add New POI clicked");
         Intent intent = new Intent(this, AddNewPOIActivity.class);
         startActivity(intent);
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
     public void ViewAllPOIs(View view) {
