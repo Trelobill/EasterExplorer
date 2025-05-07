@@ -3,12 +3,16 @@ package com.unipi.gkagkakis.easterexplorer;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -16,8 +20,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RatingBar;
-import android.text.TextWatcher;
-import android.text.Editable;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -29,7 +32,11 @@ import androidx.core.app.ActivityCompat;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textview.MaterialTextView;
+import com.unipi.gkagkakis.easterexplorer.Database.POIManager;
+import com.unipi.gkagkakis.easterexplorer.Models.POI;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -41,13 +48,17 @@ public class AddNewPOIActivity extends AppCompatActivity {
     EditText etTitle, etInfo;
     RatingBar ratingBar;
     MaterialAutoCompleteTextView categoryDropdown;
-    MaterialTextView locationDetails;
+    MaterialTextView locationDetails, toastMessageView;
     ShapeableImageView myImageView;
     Button getLocationButton, choosePhotoButton, saveButton;
     LocationManager locationManager;
     LocationListener locationListener;
     ConstraintLayout layout;
+    POIManager poiManager;
     boolean isRatingChanged = false, hasAddress = false, hasImage = false;
+    double latitude, longitude;
+    String addressText;
+    View customToastView;
     private final String[] categories = {
             "Restaurant", "Park", "Museum", "Shopping Mall",
             "Library", "Beach", "Hotel", "Cinema", "Theater", "Zoo", "Amusement Park", "Other"
@@ -75,6 +86,10 @@ public class AddNewPOIActivity extends AppCompatActivity {
         saveButton = findViewById(R.id.saveButton);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         layout = findViewById(R.id.add_poi);
+        customToastView = getLayoutInflater().inflate(R.layout.custom_toast, null);
+        toastMessageView = customToastView.findViewById(R.id.toastMessage);
+
+        poiManager = new POIManager(this);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -137,13 +152,13 @@ public class AddNewPOIActivity extends AppCompatActivity {
         });
 
         locationListener = location -> {
-            double latitude = location.getLatitude();
-            double longitude = location.getLongitude();
+            latitude = location.getLatitude();
+            longitude = location.getLongitude();
             System.out.println("Location: " + location.getLatitude() + ", " + location.getLongitude());
 
 
             Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-            String addressText = "No address found";
+            addressText = "No address found";
             try {
                 List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
                 if (addresses != null && !addresses.isEmpty()) {
@@ -191,18 +206,6 @@ public class AddNewPOIActivity extends AppCompatActivity {
         String selectedCategory = categoryDropdown.getText().toString().trim();
         String info = etInfo.getText().toString().trim();
         float rating = ratingBar.getRating();
-        String lat = "", lng = "", address = "";
-        if (formattedText != null) {
-            String regex = "<b>Latitude:</b> (.*?)<br><b>Longitude:</b> (.*?)<br><b>Address:</b> (.*)";
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(regex);
-            java.util.regex.Matcher matcher = pattern.matcher(formattedText);
-
-            if (matcher.find()) {
-                lat = matcher.group(1);
-                lng = matcher.group(2);
-                address = matcher.group(3);
-            }
-        }
 
         if (!Arrays.asList(categories).contains(selectedCategory)) {
             categoryDropdown.setError("Invalid category selected");
@@ -210,13 +213,70 @@ public class AddNewPOIActivity extends AppCompatActivity {
             return;
         }
 
+        String imagePath = null;
+        // Save the image to file system and get path
+        if (myImageView.getDrawable() != null) {
+            Bitmap bitmap = ((BitmapDrawable) myImageView.getDrawable()).getBitmap();
+            imagePath = saveImageToFile(bitmap);
+        }
+
+        // Here you can save the POI to the database or perform any other action
+        POI poi = new POI();
+        poi.setTitle(title);
+        poi.setCategory(selectedCategory);
+        poi.setRating(rating);
+        poi.setPhotoPath(imagePath);
+        poi.setLatitude(latitude);
+        poi.setLongitude(longitude);
+        poi.setTimestamp(System.currentTimeMillis());
+        poi.setInfo(info);
+
+        long result = poiManager.insertPOI(poi);
+        if (result != -1) {
+            showCustomToast(customToastView, Toast.LENGTH_SHORT, "POI added successfully");
+        } else {
+            Toast.makeText(this, "Failed to add POI", Toast.LENGTH_SHORT).show();
+        }
+
+
         System.out.println("Title: " + title);
         System.out.println("Category: " + selectedCategory);
         System.out.println("Info: " + info);
         System.out.println("Rating: " + rating);
-        System.out.println("Latitude: " + lat);
-        System.out.println("Longitude: " + lng);
-        System.out.println("Address: " + address);
+        System.out.println("Latitude: " + latitude);
+        System.out.println("Longitude: " + longitude);
+        System.out.println("Address: " + addressText);
+        System.out.println("Image blob: " + myImageView.getDrawable());
+
+        //go back to the previous activity
+        finish();
+    }
+
+    private void showCustomToast(View customToastView, int duration, String message) {
+        toastMessageView.setText(message);
+        // Create and configure the Toast
+        Toast toast = new Toast(this);
+        toast.setView(customToastView);
+        toast.setDuration(duration);
+        toast.show();
+    }
+
+    private String saveImageToFile(Bitmap bitmap) {
+        File directory = getExternalFilesDir("images");
+        if (directory != null && !directory.exists()) {
+            if (!directory.mkdirs()) {
+                System.out.println("Failed to create directory");
+                return null;
+            }
+        }
+        File file = new File(directory, System.currentTimeMillis() + ".jpg");
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+            return file.getAbsolutePath();
+        } catch (IOException e) {
+            System.out.println("Error saving image: " + e.getMessage());
+        }
+        return null;
     }
 
     private void openGallery() {
@@ -245,7 +305,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
         String category = categoryDropdown.getText().toString().trim();
         String info = etInfo.getText().toString().trim();
         boolean hasError = categoryDropdown.getError() != null;
-        saveButton.setEnabled(!title.isEmpty() && !category.isEmpty() && !info.isEmpty() && isRatingChanged && hasAddress && hasImage && !hasError);
+        saveButton.setEnabled(!title.isEmpty() && !category.isEmpty() && !info.isEmpty() && isRatingChanged && !hasAddress && hasImage && !hasError);
     }
 
     @Override
@@ -258,47 +318,11 @@ public class AddNewPOIActivity extends AppCompatActivity {
     }
 
     public void gps(View v) {
-
-        System.out.println("GPS button clicked");
-
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 123);
-            System.out.println("1");
             return;
         }
-        System.out.println("2");
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
     }
-
-
-//    private void savePOI() {
-//        String title = etTitle.getText().toString().trim();
-//        String category = categoryDropdown.getText().toString().trim();
-//        String ratingStr = etRating.getText().toString().trim();
-//        String gpsCoordinates = getIntent().getStringExtra("gpsCoordinates");
-//
-//        System.out.println("GPS Coordinates: " + gpsCoordinates);
-//
-//        if (title.isEmpty() || ratingStr.isEmpty()) {
-//            Toast.makeText(this, "Title and Rating are required", Toast.LENGTH_SHORT).show();
-//            return;
-//        }
-//
-//        double rating = Double.parseDouble(ratingStr);
-//
-//        SQLiteDatabase db = dbHelper.getWritableDatabase();
-//        ContentValues values = new ContentValues();
-//        values.put(POIDatabaseHelper.COLUMN_TITLE, title);
-//        values.put(POIDatabaseHelper.COLUMN_CATEGORY, category);
-//        values.put(POIDatabaseHelper.COLUMN_RATING, rating);
-//
-//        long result = db.insert(POIDatabaseHelper.TABLE_POI, null, values);
-//        if (result != -1) {
-//            Toast.makeText(this, "POI added successfully", Toast.LENGTH_SHORT).show();
-//            finish();
-//        } else {
-//            Toast.makeText(this, "Failed to add POI", Toast.LENGTH_SHORT).show();
-//        }
-//    }
 }
