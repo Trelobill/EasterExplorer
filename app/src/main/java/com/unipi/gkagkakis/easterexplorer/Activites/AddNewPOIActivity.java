@@ -1,4 +1,9 @@
-package com.unipi.gkagkakis.easterexplorer;
+package com.unipi.gkagkakis.easterexplorer.Activites;
+
+import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.LOCATION_PERMISSION_REQUEST_CODE;
+import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_FAILED;
+import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_SUCCESSFULLY;
+import static com.unipi.gkagkakis.easterexplorer.Utils.CustomToastUtil.showCustomToast;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -20,10 +25,10 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RatingBar;
-import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.constraintlayout.widget.ConstraintSet;
@@ -34,6 +39,7 @@ import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textview.MaterialTextView;
 import com.unipi.gkagkakis.easterexplorer.Database.POIManager;
 import com.unipi.gkagkakis.easterexplorer.Models.POI;
+import com.unipi.gkagkakis.easterexplorer.R;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -48,7 +54,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
     EditText etTitle, etInfo;
     RatingBar ratingBar;
     MaterialAutoCompleteTextView categoryDropdown;
-    MaterialTextView locationDetails, toastMessageView;
+    MaterialTextView locationDetails, toastWarningMessageView;
     ShapeableImageView myImageView;
     Button getLocationButton, choosePhotoButton, saveButton;
     LocationManager locationManager;
@@ -58,11 +64,29 @@ public class AddNewPOIActivity extends AppCompatActivity {
     boolean isRatingChanged = false, hasAddress = false, hasImage = false;
     double latitude, longitude;
     String addressText;
-    View customToastView;
+    View customWarningToastView;
     private final String[] categories = {
             "Restaurant", "Park", "Museum", "Shopping Mall",
             "Library", "Beach", "Hotel", "Cinema", "Theater", "Zoo", "Amusement Park", "Other"
     };
+
+    ActivityResultLauncher<Intent> activityToAddImage = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                int resultCode = result.getResultCode();
+                Intent data = result.getData();
+                if (resultCode == RESULT_OK && data != null) {
+                    Uri selectedImageUri = data.getData();
+                    myImageView.setImageURI(selectedImageUri);
+                    myImageView.setVisibility(View.VISIBLE);
+                    choosePhotoButton.setVisibility(View.GONE);
+                    hasImage = true;
+                    checkFields();
+                } else {
+                    showCustomToast(this, customWarningToastView, toastWarningMessageView, "Cancelled selecting an image");
+                }
+            }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,8 +110,8 @@ public class AddNewPOIActivity extends AppCompatActivity {
         saveButton = findViewById(R.id.saveButton);
         locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         layout = findViewById(R.id.add_poi);
-        customToastView = getLayoutInflater().inflate(R.layout.custom_toast, null);
-        toastMessageView = customToastView.findViewById(R.id.toastMessage);
+        customWarningToastView = getLayoutInflater().inflate(R.layout.custom_toast_warning, null);
+        toastWarningMessageView = customWarningToastView.findViewById(R.id.toastWarningMessage);
 
         poiManager = new POIManager(this);
     }
@@ -177,7 +201,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
             );
 
 
-            locationDetails.setText(android.text.Html.fromHtml(formattedText));
+            locationDetails.setText(android.text.Html.fromHtml(formattedText, android.text.Html.FROM_HTML_MODE_LEGACY));
             locationDetails.post(() -> {
                 // Hide the "Get Location" button only after the text is set
                 getLocationButton.setVisibility(View.GONE);
@@ -233,9 +257,9 @@ public class AddNewPOIActivity extends AppCompatActivity {
 
         long result = poiManager.insertPOI(poi);
         if (result != -1) {
-            showCustomToast(customToastView, Toast.LENGTH_SHORT, "POI added successfully");
+            setResult(POI_ADDED_SUCCESSFULLY);
         } else {
-            Toast.makeText(this, "Failed to add POI", Toast.LENGTH_SHORT).show();
+            setResult(POI_ADDED_FAILED);
         }
 
 
@@ -250,15 +274,6 @@ public class AddNewPOIActivity extends AppCompatActivity {
 
         //go back to the previous activity
         finish();
-    }
-
-    private void showCustomToast(View customToastView, int duration, String message) {
-        toastMessageView.setText(message);
-        // Create and configure the Toast
-        Toast toast = new Toast(this);
-        toast.setView(customToastView);
-        toast.setDuration(duration);
-        toast.show();
     }
 
     private String saveImageToFile(Bitmap bitmap) {
@@ -281,23 +296,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
 
     private void openGallery() {
         Intent intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        startActivityForResult(intent, 234);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (requestCode == 234 && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            Uri selectedImageUri = data.getData();
-
-            // Hide the button
-            choosePhotoButton.setVisibility(View.GONE);
-            myImageView.setVisibility(View.VISIBLE);
-            myImageView.setImageURI(selectedImageUri);
-            hasImage = true;
-            checkFields();
-        }
+        activityToAddImage.launch(intent);
     }
 
     private void checkFields() {
@@ -311,7 +310,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 123 && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
@@ -319,7 +318,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
 
     public void gps(View v) {
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 123);
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
             return;
         }
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);

@@ -6,4 +6,6 @@
     <color name="purple_500">#6200EE</color>
     <color name="purple_200">#BB86FC</color>
     <color name="teal_700">#77FF7DD8</color>
+    <color name="red_700">#920835</color>
+    <color name="warning">#FFC107</color>
 </resources>

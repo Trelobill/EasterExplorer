@@ -13,10 +13,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EasterExplorer">
         <activity
-            android:name=".AddNewPOIActivity"
+            android:name=".Activites.AddNewPOIActivity"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".Activites.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
