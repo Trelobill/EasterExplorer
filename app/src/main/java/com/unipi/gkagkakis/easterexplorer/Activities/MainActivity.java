@@ -1,4 +1,4 @@
-package com.unipi.gkagkakis.easterexplorer.Activites;
+package com.unipi.gkagkakis.easterexplorer.Activities;
 
 import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_FAILED;
 import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_SUCCESSFULLY;
@@ -17,17 +17,14 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.textview.MaterialTextView;
-import com.unipi.gkagkakis.easterexplorer.Database.POIManager;
-import com.unipi.gkagkakis.easterexplorer.Models.POI;
 import com.unipi.gkagkakis.easterexplorer.R;
-
-import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
     View customFailToastView, customWarningToastView, customDoneToastView;
     MaterialTextView toastFailMessageView, toastWarningMessageView, toastDoneMessageView;
 
+    // Launcher for the AddNewPOIActivity with custom Toast based on the result
     ActivityResultLauncher<Intent> activityToAddPOI = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -52,12 +49,7 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
-        customFailToastView = getLayoutInflater().inflate(R.layout.custom_toast_fail, null);
-        customWarningToastView = getLayoutInflater().inflate(R.layout.custom_toast_warning, null);
-        customDoneToastView = getLayoutInflater().inflate(R.layout.custom_toast_done, null);
-        toastFailMessageView = customFailToastView.findViewById(R.id.toastFailMessage);
-        toastWarningMessageView = customWarningToastView.findViewById(R.id.toastWarningMessage);
-        toastDoneMessageView = customDoneToastView.findViewById(R.id.toastDoneMessage);
+        initializeViews();
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -67,37 +59,28 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void initializeViews() {
+        customFailToastView = getLayoutInflater().inflate(R.layout.custom_toast_fail, null);
+        customWarningToastView = getLayoutInflater().inflate(R.layout.custom_toast_warning, null);
+        customDoneToastView = getLayoutInflater().inflate(R.layout.custom_toast_done, null);
+        toastFailMessageView = customFailToastView.findViewById(R.id.toastFailMessage);
+        toastWarningMessageView = customWarningToastView.findViewById(R.id.toastWarningMessage);
+        toastDoneMessageView = customDoneToastView.findViewById(R.id.toastDoneMessage);
+    }
+
+    // method for add POI button click
     public void AddNewPOI(View view) {
-        System.out.println("Add New POI clicked");
         Intent intent = new Intent(this, AddNewPOIActivity.class);
         activityToAddPOI.launch(intent);
+        // custom animation for the transition
         overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
+    // method for view POI button click
     public void ViewAllPOIs(View view) {
-        POIManager poiManager = new POIManager(this);
-        List<POI> poiList = poiManager.getAllPOIs();
-
-        if (poiList.isEmpty()) {
-            new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("All POIs")
-                    .setMessage("No POIs available.")
-                    .setPositiveButton("OK", null)
-                    .show();
-        } else {
-            StringBuilder poiDetails = new StringBuilder();
-            for (POI poi : poiList) {
-                poiDetails.append("Title: ").append(poi.getTitle()).append("\n")
-                        .append("Category: ").append(poi.getCategory()).append("\n")
-                        .append("Rating: ").append(poi.getRating()).append("\n\n");
-            }
-
-            new androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("All POIs")
-                    .setMessage(poiDetails.toString())
-                    .setPositiveButton("OK", null)
-                    .show();
-        }
+        Intent intent = new Intent(this, POIListActivity.class);
+        startActivity(intent);
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out);
     }
 
 }

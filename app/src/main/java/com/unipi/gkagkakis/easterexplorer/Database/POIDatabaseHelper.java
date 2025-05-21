@@ -20,6 +20,7 @@ public class POIDatabaseHelper extends SQLiteOpenHelper {
     public static final String COLUMN_LATITUDE = "latitude";
     public static final String COLUMN_LONGITUDE = "longitude";
     public static final String COLUMN_TIMESTAMP = "timestamp";
+    public static final String COLUMN_ADDRESS = "address";
     public static final String COLUMN_INFO = "info";
 
     private static final String TABLE_CREATE =
@@ -31,6 +32,7 @@ public class POIDatabaseHelper extends SQLiteOpenHelper {
                     COLUMN_PHOTO_PATH + " TEXT, " +
                     COLUMN_LATITUDE + " REAL, " +
                     COLUMN_LONGITUDE + " REAL, " +
+                    COLUMN_ADDRESS + " TEXT, " +
                     COLUMN_TIMESTAMP + " INTEGER, " +
                     COLUMN_INFO + " TEXT);";
 

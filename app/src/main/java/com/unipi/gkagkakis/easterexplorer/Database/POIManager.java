@@ -26,12 +26,13 @@ public class POIManager {
         values.put(POIDatabaseHelper.COLUMN_PHOTO_PATH, poi.getPhotoPath());
         values.put(POIDatabaseHelper.COLUMN_LATITUDE, poi.getLatitude());
         values.put(POIDatabaseHelper.COLUMN_LONGITUDE, poi.getLongitude());
+        values.put(POIDatabaseHelper.COLUMN_ADDRESS, poi.getAddress());
         values.put(POIDatabaseHelper.COLUMN_TIMESTAMP, poi.getTimestamp());
         values.put(POIDatabaseHelper.COLUMN_INFO, poi.getInfo());
         return database.insert(POIDatabaseHelper.TABLE_POI, null, values);
     }
 
-    public int updatePOI(POI poi) {
+    public int updatePOI(POI poi, int poiId) {
         ContentValues values = new ContentValues();
         values.put(POIDatabaseHelper.COLUMN_TITLE, poi.getTitle());
         values.put(POIDatabaseHelper.COLUMN_CATEGORY, poi.getCategory());
@@ -41,16 +42,16 @@ public class POIManager {
         values.put(POIDatabaseHelper.COLUMN_LONGITUDE, poi.getLongitude());
         values.put(POIDatabaseHelper.COLUMN_TIMESTAMP, poi.getTimestamp());
         values.put(POIDatabaseHelper.COLUMN_INFO, poi.getInfo());
-        return database.update(POIDatabaseHelper.TABLE_POI, values, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(poi.getId())});
+        return database.update(POIDatabaseHelper.TABLE_POI, values, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(poiId)});
     }
 
-    public int deletePOI(int id) {
-        return database.delete(POIDatabaseHelper.TABLE_POI, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+    public void deletePOI(int id) {
+        database.delete(POIDatabaseHelper.TABLE_POI, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
     }
 
     public List<POI> getAllPOIs() {
         List<POI> poiList = new ArrayList<>();
-        Cursor cursor = database.query(POIDatabaseHelper.TABLE_POI, null, null, null, null, null, POIDatabaseHelper.COLUMN_TIMESTAMP + " DESC");
+        Cursor cursor = database.query(POIDatabaseHelper.TABLE_POI, null, null, null, null, null, POIDatabaseHelper.COLUMN_TIMESTAMP + " ASC");
 
         if (cursor.moveToFirst()) {
             do {

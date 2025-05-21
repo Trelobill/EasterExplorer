@@ -1,8 +1,10 @@
-package com.unipi.gkagkakis.easterexplorer.Activites;
+package com.unipi.gkagkakis.easterexplorer.Activities;
 
 import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.LOCATION_PERMISSION_REQUEST_CODE;
 import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_FAILED;
 import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_ADDED_SUCCESSFULLY;
+import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_UPDATED_FAILED;
+import static com.unipi.gkagkakis.easterexplorer.Utils.Constants.POI_UPDATED_SUCCESSFULLY;
 import static com.unipi.gkagkakis.easterexplorer.Utils.CustomToastUtil.showCustomToast;
 
 import android.annotation.SuppressLint;
@@ -25,6 +27,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RatingBar;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -40,6 +43,7 @@ import com.google.android.material.textview.MaterialTextView;
 import com.unipi.gkagkakis.easterexplorer.Database.POIManager;
 import com.unipi.gkagkakis.easterexplorer.Models.POI;
 import com.unipi.gkagkakis.easterexplorer.R;
+import com.unipi.gkagkakis.easterexplorer.Utils.DialogUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -50,6 +54,7 @@ import java.util.Locale;
 
 public class AddNewPOIActivity extends AppCompatActivity {
 
+    int poiId;
     String formattedText;
     EditText etTitle, etInfo;
     RatingBar ratingBar;
@@ -61,15 +66,19 @@ public class AddNewPOIActivity extends AppCompatActivity {
     LocationListener locationListener;
     ConstraintLayout layout;
     POIManager poiManager;
-    boolean isRatingChanged = false, hasAddress = false, hasImage = false;
+    boolean isRatingChanged = false, hasAddress = false, hasImage = false, isEdit = false;
     double latitude, longitude;
     String addressText;
     View customWarningToastView;
+    String photoPath;
+    Bitmap bitmap;
+    // All categories used in the dropdown
     private final String[] categories = {
             "Restaurant", "Park", "Museum", "Shopping Mall",
             "Library", "Beach", "Hotel", "Cinema", "Theater", "Zoo", "Amusement Park", "Other"
     };
 
+    // Launcher for the image selection activity
     ActivityResultLauncher<Intent> activityToAddImage = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
@@ -94,10 +103,41 @@ public class AddNewPOIActivity extends AppCompatActivity {
         setContentView(R.layout.activity_add_new_poiactivity);
 
         initializeViews();
+        checkIfEdit();
         setupCategoryDropdown();
         setupListeners();
     }
 
+    // This method checks if the activity is opened for editing an existing POI
+    private void checkIfEdit() {
+        Intent intent = getIntent();
+        if (intent.hasExtra("POI_ID")) {
+            isEdit = true;
+            isRatingChanged = true;
+            saveButton.setText("Update");
+            poiId = intent.getIntExtra("POI_ID", -1);
+            etTitle.setText(intent.getStringExtra("POI_TITLE"));
+            categoryDropdown.setText(intent.getStringExtra("POI_CATEGORY"));
+            etInfo.setText(intent.getStringExtra("POI_INFO"));
+            ratingBar.setRating(intent.getFloatExtra("POI_RATING", 0));
+            latitude = intent.getDoubleExtra("POI_LATITUDE", 0);
+            longitude = intent.getDoubleExtra("POI_LONGITUDE", 0);
+
+            addressText = intent.getStringExtra("POI_ADDRESS");
+            setLocationTextAndConstraints();
+
+            photoPath = intent.getStringExtra("POI_PHOTO_PATH");
+            if (photoPath != null) {
+                myImageView.setImageURI(Uri.parse(photoPath));
+                choosePhotoButton.setVisibility(View.GONE);
+                myImageView.setVisibility(View.VISIBLE);
+                hasImage = true;
+            }
+        }
+        checkFields();
+    }
+
+    // This method initializes the views and sets up the layout
     private void initializeViews() {
         etTitle = findViewById(R.id.etTitle);
         etInfo = findViewById(R.id.etInfo);
@@ -116,6 +156,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
         poiManager = new POIManager(this);
     }
 
+    // This method sets up the category dropdown with an ArrayAdapter
     @SuppressLint("ClickableViewAccessibility")
     private void setupCategoryDropdown() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, categories);
@@ -143,11 +184,13 @@ public class AddNewPOIActivity extends AppCompatActivity {
         });
     }
 
+    // This method sets up the listeners for the buttons and text fields
     @SuppressLint("ClickableViewAccessibility")
     private void setupListeners() {
         choosePhotoButton.setOnClickListener(v -> openGallery());
         saveButton.setOnClickListener(v -> handleSaveButtonClick());
 
+        // If text is changed
         TextWatcher textWatcher = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -163,10 +206,12 @@ public class AddNewPOIActivity extends AppCompatActivity {
             }
         };
 
+        // Add text change listeners to the fields
         etTitle.addTextChangedListener(textWatcher);
         categoryDropdown.addTextChangedListener(textWatcher);
         etInfo.addTextChangedListener(textWatcher);
 
+        // Set up the rating bar listener
         ratingBar.setOnTouchListener((v, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 isRatingChanged = true;
@@ -181,6 +226,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
             System.out.println("Location: " + location.getLatitude() + ", " + location.getLongitude());
 
 
+            // Get the address from the latitude and longitude
             Geocoder geocoder = new Geocoder(this, Locale.getDefault());
             addressText = "No address found";
             try {
@@ -193,44 +239,59 @@ public class AddNewPOIActivity extends AppCompatActivity {
                 Log.e("AddNewPOIActivity", "Error fetching address from location", e);
             }
 
-            // Format the text with bold titles
-            formattedText = String.format(
-                    Locale.getDefault(),
-                    "<b>Latitude:</b> %s<br><b>Longitude:</b> %s<br><b>Address:</b> %s",
-                    latitude, longitude, addressText
-            );
-
-
-            locationDetails.setText(android.text.Html.fromHtml(formattedText, android.text.Html.FROM_HTML_MODE_LEGACY));
-            locationDetails.post(() -> {
-                // Hide the "Get Location" button only after the text is set
-                getLocationButton.setVisibility(View.GONE);
-                locationDetails.setVisibility(View.VISIBLE);
-
-                // Adjust constraints for choosePhotoButton
-                ConstraintSet constraintSet = new ConstraintSet();
-                constraintSet.clone(layout);
-
-                // Set choosePhotoButton to be below locationDetails when visible
-                constraintSet.connect(R.id.choosePhotoButton, ConstraintSet.TOP, R.id.locationDetails, ConstraintSet.BOTTOM);
-                constraintSet.applyTo(layout);
-                hasAddress = true;
-                checkFields();
-            });
+            setLocationTextAndConstraints();
 
             // Stop receiving location updates
             if (locationManager != null) {
                 locationManager.removeUpdates(locationListener);
             }
         };
+
+        // Show preview of the image when clicked
+        myImageView.setOnClickListener(v -> {
+            if (myImageView.getDrawable() != null) {
+                bitmap = ((BitmapDrawable) myImageView.getDrawable()).getBitmap();
+                DialogUtils.showImagePreviewDialog(AddNewPOIActivity.this, photoPath, bitmap);
+            } else {
+                showCustomToast(this, customWarningToastView, toastWarningMessageView, "No image to preview");
+            }
+        });
     }
 
+    private void setLocationTextAndConstraints() {
+        // Format the text with bold titles
+        formattedText = String.format(
+                Locale.getDefault(),
+                "<b>Latitude:</b> %s<br><b>Longitude:</b> %s<br><b>Address:</b> %s",
+                latitude, longitude, addressText
+        );
+
+        locationDetails.setText(android.text.Html.fromHtml(formattedText, android.text.Html.FROM_HTML_MODE_LEGACY));
+        locationDetails.post(() -> {
+            // Hide the "Get Location" button only after the text is set
+            getLocationButton.setVisibility(View.GONE);
+            locationDetails.setVisibility(View.VISIBLE);
+
+            // Adjust constraints for choosePhotoButton
+            ConstraintSet constraintSet = new ConstraintSet();
+            constraintSet.clone(layout);
+
+            // location details should be in the middle
+            constraintSet.connect(R.id.choosePhotoButton, ConstraintSet.TOP, R.id.locationDetails, ConstraintSet.BOTTOM);
+            constraintSet.applyTo(layout);
+            hasAddress = true;
+            checkFields();
+        });
+    }
+
+    // Handle the click event for the save button
     private void handleSaveButtonClick() {
         String title = etTitle.getText().toString().trim();
         String selectedCategory = categoryDropdown.getText().toString().trim();
         String info = etInfo.getText().toString().trim();
         float rating = ratingBar.getRating();
 
+        // check if category is one of the predefined categories
         if (!Arrays.asList(categories).contains(selectedCategory)) {
             categoryDropdown.setError("Invalid category selected");
             categoryDropdown.requestFocus();
@@ -240,11 +301,11 @@ public class AddNewPOIActivity extends AppCompatActivity {
         String imagePath = null;
         // Save the image to file system and get path
         if (myImageView.getDrawable() != null) {
-            Bitmap bitmap = ((BitmapDrawable) myImageView.getDrawable()).getBitmap();
+            bitmap = ((BitmapDrawable) myImageView.getDrawable()).getBitmap();
             imagePath = saveImageToFile(bitmap);
         }
 
-        // Here you can save the POI to the database or perform any other action
+        // setup the poi fields
         POI poi = new POI();
         poi.setTitle(title);
         poi.setCategory(selectedCategory);
@@ -252,30 +313,38 @@ public class AddNewPOIActivity extends AppCompatActivity {
         poi.setPhotoPath(imagePath);
         poi.setLatitude(latitude);
         poi.setLongitude(longitude);
+        poi.setAddress(addressText);
         poi.setTimestamp(System.currentTimeMillis());
         poi.setInfo(info);
 
-        long result = poiManager.insertPOI(poi);
-        if (result != -1) {
-            setResult(POI_ADDED_SUCCESSFULLY);
+        long result;
+
+        // if we editing then update the POI
+        if (isEdit) {
+            result = poiManager.updatePOI(poi, poiId);
+            if (result != -1) {
+                //setResult won't matter as I don't return to main activity, I didn't have time to implement it
+                setResult(POI_UPDATED_SUCCESSFULLY);
+                Toast.makeText(this, "POI updated successfully", Toast.LENGTH_SHORT).show();
+            } else {
+                setResult(POI_UPDATED_FAILED);
+                Toast.makeText(this, "Failed to update POI", Toast.LENGTH_SHORT).show();
+            }
+            // if we adding then add the POI
         } else {
-            setResult(POI_ADDED_FAILED);
+            result = poiManager.insertPOI(poi);
+            if (result != -1) {
+                setResult(POI_ADDED_SUCCESSFULLY);
+            } else {
+                setResult(POI_ADDED_FAILED);
+            }
         }
 
-
-        System.out.println("Title: " + title);
-        System.out.println("Category: " + selectedCategory);
-        System.out.println("Info: " + info);
-        System.out.println("Rating: " + rating);
-        System.out.println("Latitude: " + latitude);
-        System.out.println("Longitude: " + longitude);
-        System.out.println("Address: " + addressText);
-        System.out.println("Image blob: " + myImageView.getDrawable());
-
-        //go back to the previous activity
+        // go back to the previous activity
         finish();
     }
 
+    // implement the save image to file system
     private String saveImageToFile(Bitmap bitmap) {
         File directory = getExternalFilesDir("images");
         if (directory != null && !directory.exists()) {
@@ -299,12 +368,13 @@ public class AddNewPOIActivity extends AppCompatActivity {
         activityToAddImage.launch(intent);
     }
 
+    // check if save button should be enabled
     private void checkFields() {
         String title = etTitle.getText().toString().trim();
         String category = categoryDropdown.getText().toString().trim();
         String info = etInfo.getText().toString().trim();
         boolean hasError = categoryDropdown.getError() != null;
-        saveButton.setEnabled(!title.isEmpty() && !category.isEmpty() && !info.isEmpty() && isRatingChanged && !hasAddress && hasImage && !hasError);
+        saveButton.setEnabled(!title.isEmpty() && !category.isEmpty() && !info.isEmpty() && isRatingChanged && hasAddress && hasImage && !hasError);
     }
 
     @Override
@@ -313,6 +383,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
+        getLocationButton.setText("Getting location...");
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
     }
 
@@ -321,7 +392,7 @@ public class AddNewPOIActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
             return;
         }
+        getLocationButton.setText("Getting location...");
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-
     }
 }

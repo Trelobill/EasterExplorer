@@ -6,6 +6,7 @@ import android.widget.Toast;
 
 import com.google.android.material.textview.MaterialTextView;
 
+// class to show custom toasts that I created
 public class CustomToastUtil {
     public static void showCustomToast(Context context, View customToastView, MaterialTextView textView, String message) {
         textView.setText(message);

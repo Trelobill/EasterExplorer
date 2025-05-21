@@ -8,4 +8,6 @@
     <color name="teal_700">#77FF7DD8</color>
     <color name="red_700">#920835</color>
     <color name="warning">#FFC107</color>
+    <color name="yellow">#FF9800</color>
+    <color name="red">#F44336</color>
 </resources>

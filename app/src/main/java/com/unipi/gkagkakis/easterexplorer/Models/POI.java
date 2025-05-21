@@ -8,10 +8,11 @@ public class POI {
     private String photoPath;
     private double latitude;
     private double longitude;
+    private String address;
     private long timestamp;
     private String info;
 
-    // Getters and Setters
+
     public int getId() {
         return id;
     }
@@ -66,6 +67,14 @@ public class POI {
 
     public void setLongitude(double longitude) {
         this.longitude = longitude;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public long getTimestamp() {

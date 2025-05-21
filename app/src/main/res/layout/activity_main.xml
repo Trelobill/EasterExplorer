@@ -8,7 +8,7 @@
     android:paddingLeft="10dp"
     android:paddingRight="10dp"
     android:rotationX="0"
-    tools:context=".Activites.MainActivity">
+    tools:context=".Activities.MainActivity">
 
     <TextView
         android:id="@+id/AppTitle"
