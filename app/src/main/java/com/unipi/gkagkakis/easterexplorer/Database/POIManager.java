@@ -45,8 +45,8 @@ public class POIManager {
         return database.update(POIDatabaseHelper.TABLE_POI, values, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(poiId)});
     }
 
-    public void deletePOI(int id) {
-        database.delete(POIDatabaseHelper.TABLE_POI, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+    public int deletePOI(int id) {
+        return database.delete(POIDatabaseHelper.TABLE_POI, POIDatabaseHelper.COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
     }
 
     public List<POI> getAllPOIs() {
@@ -63,6 +63,7 @@ public class POIManager {
                 poi.setPhotoPath(cursor.getString(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_PHOTO_PATH)));
                 poi.setLatitude(cursor.getDouble(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_LATITUDE)));
                 poi.setLongitude(cursor.getDouble(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_LONGITUDE)));
+                poi.setAddress(cursor.getString(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_ADDRESS)));
                 poi.setTimestamp(cursor.getLong(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_TIMESTAMP)));
                 poi.setInfo(cursor.getString(cursor.getColumnIndexOrThrow(POIDatabaseHelper.COLUMN_INFO)));
                 poiList.add(poi);

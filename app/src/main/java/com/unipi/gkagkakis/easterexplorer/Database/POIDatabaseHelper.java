@@ -52,4 +52,5 @@ public class POIDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_POI);
         onCreate(db);
     }
+
 }
